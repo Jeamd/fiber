@@ -18,7 +18,6 @@ const virtualDOM = (
     >
       123
     </h3>
-    {1 == 2 && <div>111</div>}
   </div>
 );
 

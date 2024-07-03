@@ -1,4 +1,8 @@
 import { arrified, creatStateNode, createTaskQueue, getTag } from "../Misc";
+// 把每个 fiber 放到数组里
+// 统一循环这个 fiber 数组 获取 每个fiber对象
+// 从而构建真实DOM对象
+// 并且把真实DOM放到页面里
 
 const taskQueue = createTaskQueue();
 // 子任务
@@ -111,12 +115,22 @@ const executeTask = (fiber) => {
   let currentExecuteFiber = fiber;
 
   while (currentExecuteFiber.parent) {
+    // 把 当前节点Fiber追加到 当前 Fiber节点effects属性中
+    currentExecuteFiber.effects = currentExecuteFiber.effects.concat([
+      currentExecuteFiber,
+    ]);
+
+    // 每次往sibling或者往parent切换 时把 当前fiber节点中的effects 添加到 父 fiber 的effects中
+    currentExecuteFiber.parent.effects =
+      currentExecuteFiber.parent.effects.concat(currentExecuteFiber.effects);
     if (currentExecuteFiber.sibling) {
       return currentExecuteFiber.sibling;
     }
 
     currentExecuteFiber = currentExecuteFiber.parent;
   }
+
+  console.log(fiber);
 };
 
 const workLoop = (deadline) => {
