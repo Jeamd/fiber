@@ -1,4 +1,31 @@
 /*******************************************react_fiber***************************************************************/
+import React, { render } from "./react_fiber";
+
+const root = document.getElementById("root");
+
+const virtualDOM = (
+  <div>
+    <div>
+      <span>111</span>
+      <h2>222</h2>
+    </div>
+    <img src="avatar.png" className="profile" />
+    <span>🐂🍺</span>
+    <h3
+      onClick={() => {
+        console.log("1111");
+      }}
+    >
+      123
+    </h3>
+    {1 == 2 && <div>111</div>}
+  </div>
+);
+
+React.render(virtualDOM, root);
+
+console.log(virtualDOM);
+
 /*******************************************react***************************************************************/
 // import React from "./react";
 
