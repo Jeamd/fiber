@@ -24,8 +24,6 @@ const virtualDOM = (
 
 React.render(virtualDOM, root);
 
-console.log(virtualDOM);
-
 /*******************************************react***************************************************************/
 // import React from "./react";
 

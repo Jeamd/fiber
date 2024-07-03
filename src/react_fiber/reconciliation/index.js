@@ -1,4 +1,4 @@
-import { arrified, createTaskQueue } from "../Misc";
+import { arrified, creatStateNode, createTaskQueue, getTag } from "../Misc";
 
 const taskQueue = createTaskQueue();
 // 子任务
@@ -52,13 +52,15 @@ const reconcileChildren = (fiber, children) => {
       type: currentVirtualDom.type,
       props: currentVirtualDom.props,
       stateNode: null,
-      tag: "hostComponent", // 节点类型标记
+      tag: getTag(currentVirtualDom), // 节点类型标记
       effects: [],
       effectTag: "",
       child: null,
       sibling: null,
       parent: fiber,
     };
+
+    currentFiber.stateNode = creatStateNode(currentFiber);
 
     if (i === 0) {
       // 第一个子节点，给 父Fiber添加child
@@ -75,10 +77,46 @@ const reconcileChildren = (fiber, children) => {
 const executeTask = (fiber) => {
   /**
    * 构建子节点FIber
+   * fiber节点的构建顺序
+   * rootfiber节点手动构建，传入构建函数 reconcileChildren
+   * 规定：传入构建函数的 fiber 节点为 当前Fiber节点
+   * ------开始构建-----
+   * 1.判断 当前Fiber节点是否存在子节点（通过虚拟DOM的props.children属性拿到虚拟子节点数组）。
+   *    存在 继续；
+   *    不存在
+   *        1-2 判断 当前Fiber节点是否存在siling节点
+   *            存在 把 fiber.siling 传入构建函数 结束；
+   *            不存在 返回 fiber.parent/return 执行 1-2 判断 直到 fiber.parent/return不存在
+   * 2.构建 当前Fiber节点下的所有子节点，并关联 子节点Fiber之间和当前Fiber的关系（parent/return、sibling、child）注意child指向第一个Fiber子节点
+   * 3.通过 child 把 fiber.child 传入构建函数
+   *
+   * 简单描述一下
+   * 首先会手动构建rootFiber对象
+   * 之后构建rootFiber 对象的子节点的fiber 并且 把他们绑定上 关联关系
+   * 之后通过关联关系构建 child Fiber 的 子节点 Fiber
+   * 依次向下构建到最后 fiber 上不存在子节点了 那就找 sibling 节点 并且继续向下
+   * 如果 siblig 节点也不存在 那就返回 父Fiber 找父Fiber 的sibling
+   * 找到了就继续向下 没找着就继续向上找找父Fiber 的sibling
+   * 直到 找到 没有父 fiber 的fiber节点 结束 就又回到了 rootFiber
+   *
    */
   reconcileChildren(fiber, fiber.props.children);
 
-  console.log(fiber);
+  // 返回新的子任务 构建fiber 时 返回的就是 fiber 节点
+  if (fiber.child) {
+    return fiber.child;
+  }
+
+  // 下边就是找 父 Fiber 对象的 sibling 指向的兄弟节点
+  let currentExecuteFiber = fiber;
+
+  while (currentExecuteFiber.parent) {
+    if (currentExecuteFiber.sibling) {
+      return currentExecuteFiber.sibling;
+    }
+
+    currentExecuteFiber = currentExecuteFiber.parent;
+  }
 };
 
 const workLoop = (deadline) => {
@@ -91,6 +129,7 @@ const workLoop = (deadline) => {
 
   /**
    * 循环执行任务
+   * 代替之前 递归创建 DOM 实例的 过程
    * 如果任务存在并且浏览器有空闲时间就执行任务(实时获取浏览器剩余空闲时间大于 1ms)
    * executeTask 执行任务 接收任务 返回新任务
    */
