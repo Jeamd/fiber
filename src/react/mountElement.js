@@ -1,4 +1,7 @@
-import { getFunctionComponentVirtualDOM } from "./gitVirtualDomFromComponent";
+import {
+  getClassComponentVirtualDOM,
+  getFunctionComponentVirtualDOM,
+} from "./gitVirtualDomFromComponent";
 
 /**
  *
@@ -30,22 +33,37 @@ export function createDOMElement(virtualDOM) {
     newElement = document.createElement(virtualDOM.type);
 
     // 为元素节点添加属性
-    upDateNodeElement(newElement, virtualDOM);
+    updateNodeElement(newElement, virtualDOM);
   }
+
+  // 在真实dom实例上挂载 虚拟DOM 以便于在后续更新时获取
+  newElement._virtualDOM = virtualDOM;
 
   return newElement;
 }
 
-export function mountNativeElement(virtualDOM, container) {
+export function mountNativeElement(virtualDOM, container, oldDOM) {
   const newElement = createDOMElement(virtualDOM);
+
+  const instance = virtualDOM.instance;
+
+  if (instance) {
+    instance.setDOM(newElement);
+  }
 
   // 递归创建子节点
   virtualDOM.children.forEach((child) => {
     mountElement(child, newElement);
   });
 
-  // 将创建好的元素节点放进父节点中
-  container.appendChild(newElement);
+  // 将创建好的元素节点放进父节点中 采用 替换或者 添加
+  if (oldDOM) {
+    // 存在oldDom 就采用 替换
+    container.replaceChild(newElement, oldDOM);
+  } else {
+    // 不存在就采用 添加
+    container.appendChild(newElement);
+  }
 }
 
 // 组件处理
@@ -56,6 +74,7 @@ export function mountComponentElement(virtualDOM, container) {
     // 函数组件
     componentVirtualDOM = getFunctionComponentVirtualDOM(virtualDOM);
   } else {
+    componentVirtualDOM = getClassComponentVirtualDOM(virtualDOM);
   }
 
   mountElement(componentVirtualDOM, container);
@@ -71,31 +90,57 @@ export function isFunctionComponent(virtualDOM) {
 }
 
 // 为元素节点添加属性
-export function upDateNodeElement(newElement, virtualDOM) {
+export function updateNodeElement(newElement, virtualDOM, oldVirtualDOM = {}) {
   // 获取节点的属性对象
-  const newProps = virtualDOM.props;
+  const newProps = virtualDOM.props || {};
+  const oldProps = oldVirtualDOM.props || {};
 
+  // 添加或修改属性
   Object.keys(newProps).forEach((propName) => {
     const newPropsValue = newProps[propName];
+    const oldPropsValue = oldProps[propName];
 
-    // 判断事件属性
-    if (propName.slice(0, 2) === "on") {
-      const eventName = propName.slice(2).toLowerCase();
+    if (newPropsValue !== oldPropsValue) {
+      // 属性值不同需要更新 新增的话肯定会走这
 
-      // 添加事件
-      newElement.addEventListener(eventName, newPropsValue);
-    } else if (propName === "value" || propName === "checked") {
-      // 判断是否为特殊属性
+      // 判断事件属性
+      if (propName.slice(0, 2) === "on") {
+        const eventName = propName.slice(2).toLowerCase();
 
-      newElement[propName] = newPropsValue;
-    } else if (propName !== "children") {
-      // 过滤掉children 属性
-      if (propName === "className") {
-        // 添加class属性
+        // 添加事件
+        newElement.addEventListener(eventName, newPropsValue);
 
-        newElement.setAttribute("class", newPropsValue);
-      } else {
-        newElement.setAttribute(propName, newPropsValue);
+        // 移除老的事件
+        newElement.removeEventListener(eventName, oldPropsValue);
+      } else if (propName === "value" || propName === "checked") {
+        // 判断是否为特殊属性
+
+        newElement[propName] = newPropsValue;
+      } else if (propName !== "children") {
+        // 过滤掉children 属性
+        if (propName === "className") {
+          // 添加class属性
+          newElement.setAttribute("class", newPropsValue);
+        } else {
+          newElement.setAttribute(propName, newPropsValue);
+        }
+      }
+    }
+  });
+
+  // 删除属性
+  Object.keys(oldProps).forEach((propName) => {
+    const newPropsValue = newProps[propName];
+    const oldPropsValue = oldProps[propName];
+
+    if (!newPropsValue) {
+      // 在新的virtualDOM中不存在的属性，说明旧属性被删除
+      if (propName.slice(0, 2) === "on") {
+        const eventName = propName.slice(2).toLowerCase();
+        // 移除老的事件
+        newElement.removeEventListener(eventName, oldPropsValue);
+      } else if (propName !== "children") {
+        newElement.removeAttribute(propName);
       }
     }
   });

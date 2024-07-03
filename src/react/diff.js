@@ -1,4 +1,6 @@
 import mountElement from "./mountElement";
+import beginDiff from "./beginDiff";
+
 /**
  *
  * @param {*} virtualDOM 虚拟DOM
@@ -12,6 +14,9 @@ export default function diff(virtualDOM, container, oldDOM) {
   // 判断oldDOM是否存在
   if (!oldDOM) {
     // 通过虚拟DOM创建真实DOM  进行挂载
-    mountElement(virtualDOM, container);
+    mountElement(virtualDOM, container, oldDOM);
+  } else {
+    // 存在旧的节点 边对比边更新
+    beginDiff(virtualDOM, container, oldDOM);
   }
 }

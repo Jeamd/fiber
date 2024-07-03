@@ -3,6 +3,8 @@ export function getFunctionComponentVirtualDOM(virtualDOM) {
 }
 
 export function getClassComponentVirtualDOM(virtualDOM) {
-  const instance = new virtualDOM.type();
-  return instance.render();
+  const instance = new virtualDOM.type(virtualDOM.props || {});
+  const virtualDOM = instance.render();
+  virtualDOM.instance = instance;
+  return virtualDOM;
 }
