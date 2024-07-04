@@ -33,7 +33,13 @@ class App extends React.Component {
   }
 }
 
-React.render(<App />, root);
+// React.render(<App />, root);
+
+function FuncApp(props) {
+  return <div>{props.title} component</div>;
+}
+
+React.render(<FuncApp title={"function"} />, root);
 
 /*******************************************react***************************************************************/
 // import React from "./react";

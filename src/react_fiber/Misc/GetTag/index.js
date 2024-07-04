@@ -6,6 +6,6 @@ export default function getTag(virtualDOM) {
   } else if (Object.getPrototypeOf(virtualDOM.type) === Component) {
     return "classComponent";
   } else {
-    return "finctionComponent";
+    return "functionComponent";
   }
 }
