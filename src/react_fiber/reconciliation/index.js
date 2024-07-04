@@ -8,6 +8,23 @@ const taskQueue = createTaskQueue();
 // 子任务
 let subTask = null;
 
+let pendingCommit = null;
+
+const commitAllWork = (fiber) => {
+  fiber.effects.forEach((fiber) => {
+    if (fiber.effectTag === "placement") {
+      let _parent_fiber = fiber.parent;
+      while (_parent_fiber.tag === "classComponent") {
+        _parent_fiber = _parent_fiber.parent;
+      }
+
+      if (fiber.tag === "hostComponent") {
+        _parent_fiber.stateNode.appendChild(fiber.stateNode);
+      }
+    }
+  });
+};
+
 /**
  * 函数定义
  * 获取任务队列中的 第一个任务的子任务
@@ -58,7 +75,7 @@ const reconcileChildren = (fiber, children) => {
       stateNode: null,
       tag: getTag(currentVirtualDom), // 节点类型标记
       effects: [],
-      effectTag: "",
+      effectTag: "placement",
       child: null,
       sibling: null,
       parent: fiber,
@@ -104,7 +121,12 @@ const executeTask = (fiber) => {
    * 直到 找到 没有父 fiber 的fiber节点 结束 就又回到了 rootFiber
    *
    */
-  reconcileChildren(fiber, fiber.props.children);
+
+  if (fiber.tag === "classComponent") {
+    reconcileChildren(fiber, fiber.stateNode.render());
+  } else {
+    reconcileChildren(fiber, fiber.props.children);
+  }
 
   // 返回新的子任务 构建fiber 时 返回的就是 fiber 节点
   if (fiber.child) {
@@ -129,8 +151,9 @@ const executeTask = (fiber) => {
 
     currentExecuteFiber = currentExecuteFiber.parent;
   }
-
-  console.log(fiber);
+  // 赋值rootFiber
+  pendingCommit = currentExecuteFiber;
+  console.log(currentExecuteFiber);
 };
 
 const workLoop = (deadline) => {
@@ -149,6 +172,11 @@ const workLoop = (deadline) => {
    */
   while (subTask && deadline.timeRemaining() > 1) {
     subTask = executeTask(subTask);
+  }
+
+  // 初始化渲染
+  if (pendingCommit) {
+    commitAllWork(pendingCommit);
   }
 };
 

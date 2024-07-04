@@ -21,7 +21,19 @@ const virtualDOM = (
   </div>
 );
 
-React.render(virtualDOM, root);
+// React.render(virtualDOM, root);
+
+class App extends React.Component {
+  constructor(props) {
+    super(props);
+  }
+
+  render() {
+    return <div>class component</div>;
+  }
+}
+
+React.render(<App />, root);
 
 /*******************************************react***************************************************************/
 // import React from "./react";
