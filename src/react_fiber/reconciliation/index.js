@@ -1,3 +1,4 @@
+import { updateNodeElement } from "../DOM";
 import { arrified, creatStateNode, createTaskQueue, getTag } from "../Misc";
 // 把每个 fiber 放到数组里
 // 统一循环这个 fiber 数组 获取 每个fiber对象
@@ -11,8 +12,12 @@ let subTask = null;
 let pendingCommit = null;
 
 const commitAllWork = (fiber) => {
+  // 把fiber 中对应的stateNode（只要DOM实例）挂载到对应parent Fiber 的 DOM 实例中
+  // 最后挂载到rootFiber DOM 实例上 就显示到页面中了
   fiber.effects.forEach((fiber) => {
-    if (fiber.effectTag === "placement") {
+    if (fiber.effectTag === "delete") {
+      fiber.parent.stateNode.removeChild(fiber.stateNode);
+    } else if (fiber.effectTag === "placement") {
       let _parent_fiber = fiber.parent;
       while (
         _parent_fiber.tag === "classComponent" ||
@@ -24,8 +29,23 @@ const commitAllWork = (fiber) => {
       if (fiber.tag === "hostComponent") {
         _parent_fiber.stateNode.appendChild(fiber.stateNode);
       }
+    } else if (fiber.effectTag === "update") {
+      // 节点类型相同
+      if (fiber.type === fiber.alternate.type) {
+        updateNodeElement(fiber.stateNode, fiber, fiber.alternate);
+        return;
+      }
+      // 节点类型不同
+      fiber.parent.stateNode.replaceChild(
+        fiber.stateNode,
+        fiber.alternate.stateNode
+      );
     }
   });
+
+  // 挂载完毕
+  // 备份旧的（挂载完毕的）fiber 节点 到DOM实例上
+  fiber.stateNode.__rootFiberContainer = fiber;
 };
 
 /**
@@ -52,7 +72,7 @@ const getFirstTask = () => {
     parent: null, // 指向 父级 Fiber
     child: null, // 指向 指向 第一个子Fiber
     sibling: null, // 指向 下一个 兄弟 Fiber
-    alternate: null, // 指向 workInProgress/current 中相对应的 Fiber
+    alternate: task.dom.__rootFiberContainer, // 指向 workInProgress/current 中相对应的 Fiber
   };
 };
 
@@ -68,6 +88,7 @@ const reconcileChildren = (fiber, children) => {
    */
   const arrifiedChildren = arrified(children);
   let preFiber = null;
+  let alternate = fiber.alternate || null;
 
   // 为每一个子节点创建Fiber
   for (let i = 0; i < arrifiedChildren.length; i++) {
@@ -84,17 +105,48 @@ const reconcileChildren = (fiber, children) => {
       parent: fiber,
     };
 
-    currentFiber.stateNode = creatStateNode(currentFiber);
-
     if (i === 0) {
       // 第一个子节点，给 父Fiber添加child
       fiber.child = currentFiber;
     } else {
       preFiber.sibling = currentFiber;
     }
+    // 给创建的 Fiber 绑定 alternet
+    if (alternate) {
+      if (i === 0) {
+        alternate = alternate.child;
+      } else {
+        alternate = alternate.sibling;
+      }
+
+      currentFiber.alternate = alternate;
+    }
+
+    // 判断当前节点是否是 需要更新 的节点
+    if (currentFiber.alternate) {
+      currentFiber.effectTag = "update";
+
+      // 判断新旧 fiber 对象的 type 是否相同，来绑定stateNode属性
+      if (currentFiber.type === currentFiber.alternate.type) {
+        // 相同就使用旧的 DOM 对象
+        currentFiber.stateNode = currentFiber.alternate.stateNode;
+      } else {
+        // 不同直接创建新的 DOM 对象
+        currentFiber.stateNode = creatStateNode(currentFiber);
+      }
+    } else {
+      currentFiber.stateNode = creatStateNode(currentFiber);
+    }
 
     // 记录上一个 Fiber
     preFiber = currentFiber;
+  }
+
+  // 如果 alternate 还存在 silbing 节点 说明 后边的节点都需要删除
+  while (alternate && alternate !== fiber.alternate && alternate.sibling) {
+    alternate = alternate.sibling;
+    alternate.effectTag = "delete";
+    fiber.effects = fiber.effects.concat(alternate);
   }
 };
 
@@ -179,7 +231,7 @@ const workLoop = (deadline) => {
     subTask = executeTask(subTask);
   }
 
-  // 初始化渲染
+  // 去挂载DOM节点
   if (pendingCommit) {
     commitAllWork(pendingCommit);
   }

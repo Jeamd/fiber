@@ -9,19 +9,25 @@ const virtualDOM = (
       <span>111</span>
       <h2>222</h2>
     </div>
-    <img src="avatar.png" className="profile" />
     <span>🐂🍺</span>
-    <h3
-      onClick={() => {
-        console.log("1111");
-      }}
-    >
-      123
-    </h3>
   </div>
 );
 
-// React.render(virtualDOM, root);
+const newVirtualDOM = (
+  <div>
+    <div>
+      <span>222</span>
+      {/* <h3>444</h3> */}
+    </div>
+    <span>111🐂🍺222</span>
+  </div>
+);
+
+React.render(virtualDOM, root);
+
+setTimeout(() => {
+  React.render(newVirtualDOM, root);
+}, 2000);
 
 class App extends React.Component {
   constructor(props) {
@@ -39,7 +45,7 @@ function FuncApp(props) {
   return <div>{props.title} component</div>;
 }
 
-React.render(<FuncApp title={"function"} />, root);
+// React.render(<FuncApp title={"function"} />, root);
 
 /*******************************************react***************************************************************/
 // import React from "./react";
