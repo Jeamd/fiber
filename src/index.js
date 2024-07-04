@@ -23,23 +23,33 @@ const newVirtualDOM = (
   </div>
 );
 
-React.render(virtualDOM, root);
+// React.render(virtualDOM, root);
 
-setTimeout(() => {
-  React.render(newVirtualDOM, root);
-}, 2000);
+// setTimeout(() => {
+//   React.render(newVirtualDOM, root);
+// }, 2000);
 
 class App extends React.Component {
   constructor(props) {
     super(props);
+    this.state = {
+      class: "class",
+    };
   }
 
   render() {
-    return <div>class component</div>;
+    return (
+      <div>
+        <div>{this.state.class} component</div>
+        <button onClick={() => this.setState({ class: "change class" })}>
+          class component
+        </button>
+      </div>
+    );
   }
 }
 
-// React.render(<App />, root);
+React.render(<App />, root);
 
 function FuncApp(props) {
   return <div>{props.title} component</div>;

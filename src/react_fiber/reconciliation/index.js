@@ -1,5 +1,11 @@
 import { updateNodeElement } from "../DOM";
-import { arrified, creatStateNode, createTaskQueue, getTag } from "../Misc";
+import {
+  arrified,
+  creatStateNode,
+  createTaskQueue,
+  getTag,
+  gitFiberRoot,
+} from "../Misc";
 // 把每个 fiber 放到数组里
 // 统一循环这个 fiber 数组 获取 每个fiber对象
 // 从而构建真实DOM对象
@@ -15,6 +21,10 @@ const commitAllWork = (fiber) => {
   // 把fiber 中对应的stateNode（只要DOM实例）挂载到对应parent Fiber 的 DOM 实例中
   // 最后挂载到rootFiber DOM 实例上 就显示到页面中了
   fiber.effects.forEach((fiber) => {
+    if (fiber.tag === "classComponent") {
+      fiber.stateNode.__fiber = fiber;
+    }
+
     if (fiber.effectTag === "delete") {
       fiber.parent.stateNode.removeChild(fiber.stateNode);
     } else if (fiber.effectTag === "placement") {
@@ -58,6 +68,24 @@ const getFirstTask = () => {
    * 从任务队列中获取任务
    */
   const task = taskQueue.pop();
+
+  if (task.from === "classComponent") {
+    // 从rootFiber 节点从新构建新的 fiber 树
+    const root = gitFiberRoot(task.instance.__fiber);
+    task.instance.__fiber.pendingState = task.pendingState;
+    return {
+      props: root.props, // 节点属性
+      stateNode: root.stateNode, // 节点的DOM对象
+      type: "div", // 节点类型（元素、文本、组件）（具体的类型）
+      tag: "hostRoot", // 节点的标记（hostRoot\hostComponent\classComponent\functionComent）
+      effects: [], // 数组，存储需要更改的Fiber对象 新的好像是 flags
+      effectTag: "", // 当前 FIber 要执行的操作 （新增、删除、修改）
+      parent: null, // 指向 父级 Fiber
+      child: null, // 指向 指向 第一个子Fiber
+      sibling: null, // 指向 下一个 兄弟 Fiber
+      alternate: root, // 指向 workInProgress/current 中相对应的 Fiber
+    };
+  }
 
   /**
    * 返回最外层节点的FIber对象
@@ -178,6 +206,13 @@ const executeTask = (fiber) => {
    */
 
   if (fiber.tag === "classComponent") {
+    // 更新state
+    if (fiber.stateNode.__fiber && fiber.stateNode.__fiber.pendingState) {
+      fiber.stateNode.state = {
+        ...fiber.stateNode.state,
+        ...fiber.stateNode.__fiber.pendingState,
+      };
+    }
     reconcileChildren(fiber, fiber.stateNode.render());
   } else if (fiber.tag === "functionComponent") {
     reconcileChildren(fiber, fiber.type(fiber.props));
@@ -277,6 +312,16 @@ export function render(virtualDOM, container, oldDOM = container.firstChild) {
   /**
    * 任务的调度开始，在浏览器空闲时间去执行任务
    */
+
+  requestIdleCallback(preformTask);
+}
+
+export function updateClassState(instance, pendingState) {
+  taskQueue.push({
+    from: "classComponent",
+    instance,
+    pendingState,
+  });
 
   requestIdleCallback(preformTask);
 }
